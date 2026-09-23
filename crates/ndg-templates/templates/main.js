@@ -262,6 +262,76 @@ function initScrollSpy(signal) {
   );
 }
 
+// Show a content image that the page scales down at its full size in a modal
+// dialog. Images inside links keep the behavior of the link.
+function setupImageZoom(signal) {
+  const content = document.querySelector("main.content");
+  if (!content) return;
+
+  const dialog = document.createElement("dialog");
+  dialog.className = "image-zoom";
+  // Any click closes the dialog; the Escape key closes it natively.
+  dialog.addEventListener("click", () => dialog.close(), { signal });
+  dialog.addEventListener("close", () => dialog.replaceChildren(), { signal });
+  document.body.appendChild(dialog);
+  signal.addEventListener("abort", () => dialog.remove(), { once: true });
+
+  // An image is zoomable only while the page shows it smaller than it is.
+  const resizeObserver = new ResizeObserver((entries) => {
+    for (const { target: image } of entries) {
+      const zoomable =
+        image.clientWidth > 0 && image.naturalWidth > image.clientWidth;
+      image.classList.toggle("zoomable", zoomable);
+      if (zoomable) {
+        image.tabIndex = 0;
+        image.setAttribute("role", "button");
+      } else {
+        image.removeAttribute("tabindex");
+        image.removeAttribute("role");
+      }
+    }
+  });
+  content.querySelectorAll("img").forEach((image) => {
+    if (!image.closest("a")) resizeObserver.observe(image);
+  });
+  signal.addEventListener("abort", () => resizeObserver.disconnect(), {
+    once: true,
+  });
+
+  const open = (image) => {
+    const copy = image.cloneNode();
+    copy.className = "";
+    copy.removeAttribute("tabindex");
+    copy.removeAttribute("role");
+    copy.removeAttribute("sizes");
+    dialog.setAttribute("aria-label", image.alt || "Image");
+    dialog.replaceChildren(copy);
+    dialog.showModal();
+  };
+
+  content.addEventListener(
+    "click",
+    (event) => {
+      const image = event.target.closest("img.zoomable");
+      if (image) open(image);
+    },
+    { signal },
+  );
+  content.addEventListener(
+    "keydown",
+    (event) => {
+      if (
+        (event.key === "Enter" || event.key === " ") &&
+        event.target.matches("img.zoomable")
+      ) {
+        event.preventDefault();
+        open(event.target);
+      }
+    },
+    { signal },
+  );
+}
+
 function initMobileNavigation() {
   const mobileSidebarContainer = document.querySelector(
     ".mobile-sidebar-container",
@@ -1115,6 +1185,9 @@ function initializePage() {
 
   // Initialize scroll spy for page TOC
   initScrollSpy(signal);
+
+  // Let a click show a scaled-down content image at full size
+  setupImageZoom(signal);
 
   // Template container for collapsed sidebar content (prevents Ctrl+F from finding hidden content)
   const sidebarHiddenContainer = document.createElement("template");

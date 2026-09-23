@@ -35,6 +35,13 @@ changes.
 
 ## [Unreleased]
 
+### Added
+
+- The default template now shows a content image that the page scales down at
+  its full size when you click it or press Enter on it. The image opens in a
+  modal dialog, and a click or the Escape key closes it. Images inside links
+  keep the behavior of the link.
+
 ### Fixed
 
 - An anchor link that holds only an element, such as
