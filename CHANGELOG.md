@@ -55,6 +55,14 @@ changes.
   each document page, and as arrows next to the content on wide screens.
   Templates get the links through `prev_page` and `next_page`.
 
+- Mermaid diagrams. With `mermaid.enable = true`, NDG renders `mermaid` code
+  blocks as `<pre class="mermaid">` elements and adds `assets/mermaid-init.js`
+  to each page. The script loads the Mermaid library only on pages with a
+  diagram. `mermaid.script` sets the library as a URL or a local file, which NDG
+  copies to `assets/`. It defaults to Mermaid 11 from jsDelivr. The
+  `ndg-builder` Nix package has a `mermaid` option that uses the library from
+  `mdbook-mermaid`.
+
 ### Changed
 
 - `ndg init` now generates configuration from the config types and defaults,
