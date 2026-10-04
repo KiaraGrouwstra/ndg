@@ -7,6 +7,7 @@ use std::{
 mod common;
 
 use common::test_config;
+use ndg_config::mermaid::{DEFAULT_MERMAID_SCRIPT, MermaidConfig};
 use ndg_html::template::render;
 use ndg_utils::assets::copy_assets;
 use tempfile::{TempDir, tempdir_in};
@@ -121,5 +122,87 @@ fn test_custom_scripts_reject_duplicate_destination_filenames() {
     fs::read_to_string(output.join("assets/custom.js"))
       .expect("Read original destination"),
     "previous script"
+  );
+}
+
+fn render_with_mermaid(
+  script: Option<&str>,
+  output_dir: &std::path::Path,
+) -> String {
+  let config = ndg_config::Config {
+    mermaid: Some(MermaidConfig {
+      enable: true,
+      script: script.map(str::to_owned),
+    }),
+    ..test_config(output_dir)
+  };
+
+  render(
+    &config,
+    "<p>Test content</p>",
+    "Test Page",
+    &[],
+    &PathBuf::from("docs/test.html"),
+    None,
+  )
+  .expect("Failed to render page")
+}
+
+#[test]
+fn test_mermaid_loader_uses_default_cdn() {
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let html = render_with_mermaid(None, temp_dir.path());
+
+  assert!(
+    html.contains(&format!(
+      "<script defer src=\"../assets/mermaid-init.js\" \
+       data-mermaid-src=\"{DEFAULT_MERMAID_SCRIPT}\"></script>"
+    )),
+    "Loader should point to the default Mermaid script"
+  );
+}
+
+#[test]
+fn test_mermaid_loader_links_to_copied_script() {
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let html = render_with_mermaid(
+    Some("/nix/store/abc-mermaid/mermaid.min.js"),
+    temp_dir.path(),
+  );
+
+  assert!(
+    html.contains("data-mermaid-src=\"../assets/mermaid.min.js\""),
+    "Loader should point to the copied Mermaid script"
+  );
+  assert!(
+    !html.contains("/nix/store/abc-mermaid"),
+    "Loader should not point to the source path of the script"
+  );
+}
+
+#[test]
+fn test_mermaid_loader_absent_when_disabled() {
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let config = ndg_config::Config {
+    mermaid: Some(MermaidConfig {
+      enable: false,
+      script: None,
+    }),
+    ..test_config(temp_dir.path())
+  };
+
+  let html = render(
+    &config,
+    "<p>Test content</p>",
+    "Test Page",
+    &[],
+    &PathBuf::from("docs/test.html"),
+    None,
+  )
+  .expect("Failed to render page");
+
+  assert!(
+    !html.contains("mermaid-init.js"),
+    "Loader should not be added when Mermaid is disabled"
   );
 }
