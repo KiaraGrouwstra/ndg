@@ -13,6 +13,7 @@ use crate::{
   error::ConfigError,
   index,
   markdown,
+  mermaid,
   meta,
   options,
   postprocess,
@@ -125,6 +126,10 @@ pub struct Config {
   #[config(nested)]
   pub markdown: Option<markdown::MarkdownConfig>,
 
+  /// Mermaid diagram configuration.
+  #[config(nested)]
+  pub mermaid: Option<mermaid::MermaidConfig>,
+
   /// GitHub revision for linking to source files.
   #[config(key = "revision")]
   pub revision: String,
@@ -221,6 +226,7 @@ impl Default for Config {
       footer_text:           DEFAULT_FOOTER_TEXT.to_string(),
       highlight_code:        true,
       markdown:              None,
+      mermaid:               None,
       revision:              DEFAULT_REVISION.to_string(),
       included_files:        FxHashMap::default(),
       included_output_files: FxHashMap::default(),
@@ -244,6 +250,20 @@ impl Config {
   #[must_use]
   pub fn is_search_enabled(&self) -> bool {
     self.search.as_ref().is_none_or(|s| s.enable)
+  }
+
+  /// Returns the Mermaid configuration when Mermaid diagrams are enabled.
+  ///
+  /// Mermaid diagrams are disabled when no `mermaid` configuration is present.
+  #[must_use]
+  pub fn enabled_mermaid(&self) -> Option<&mermaid::MermaidConfig> {
+    self.mermaid.as_ref().filter(|m| m.enable)
+  }
+
+  /// Returns whether Mermaid diagrams are enabled.
+  #[must_use]
+  pub fn is_mermaid_enabled(&self) -> bool {
+    self.enabled_mermaid().is_some()
   }
 
   /// Returns the maximum heading level to index for search.
@@ -842,6 +862,18 @@ impl Config {
       }
     }
 
+    // A local Mermaid library file should exist if Mermaid is enabled
+    if let Some(mermaid::MermaidScript::File(script)) = self
+      .enabled_mermaid()
+      .map(mermaid::MermaidConfig::script_source)
+      && !script.is_file()
+    {
+      errors.push(format!(
+        "Mermaid script file does not exist: {}",
+        script.display()
+      ));
+    }
+
     // Nixdoc input paths should exist if specified
     for (index, nixdoc_input) in self.nixdoc_inputs.iter().enumerate() {
       if !nixdoc_input.exists() {
@@ -1194,6 +1226,15 @@ mod tests {
     // Non-empty should set to Some
     config.apply_override("input_dir", "/new/path").unwrap();
     assert_eq!(config.input_dir, Some(PathBuf::from("/new/path")));
+  }
+
+  #[test]
+  fn test_apply_override_mermaid() {
+    let mut config = Config::default();
+    assert!(!config.is_mermaid_enabled());
+
+    config.apply_override("mermaid.enable", "true").unwrap();
+    assert!(config.is_mermaid_enabled());
   }
 
   #[test]
