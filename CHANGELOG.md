@@ -52,6 +52,14 @@ changes.
   `ndg-builder` Nix package has a `mermaid` option that uses the library from
   `mdbook-mermaid`.
 
+- A theme toggle in the page header. A click selects the light or the dark
+  theme, and the page keeps the selection in `localStorage`. When the selected
+  theme is the same as the system theme, the page follows the system theme
+  again. The toggle also selects the matching `<source>` of a `<picture>` with a
+  `prefers-color-scheme` media query, and Mermaid draws the diagrams again in
+  the new theme. The page sends an `ndg:themechange` event on `document` when
+  the theme changes.
+
 ### Fixed
 
 - Pages now link each script in `script_paths` at `assets/<file name>`, where
