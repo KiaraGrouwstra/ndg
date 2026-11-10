@@ -44,6 +44,10 @@ changes.
   `sidebar.group_by_dir` report errors
   ([#290](https://github.com/feel-co/ndg/issues/290)).
 
+- `sidebar.collapsible` folds the sub-chapters of the document sidebar. Each
+  page with children is a `<details>` element, only the chain to the current
+  page is open, and the link of the current page has the class `active`.
+
 - Mermaid diagrams. With `mermaid.enable = true`, NDG renders `mermaid` code
   blocks as `<pre class="mermaid">` elements and adds `assets/mermaid-init.js`
   to each page. The script loads the Mermaid library only on pages with a
