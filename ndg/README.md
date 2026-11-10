@@ -513,6 +513,12 @@ without syntax highlighting, and adds `assets/mermaid-init.js` to each page. The
 script loads the Mermaid library only on pages that have a diagram, and selects
 the dark Mermaid theme when the browser prefers a dark color scheme.
 
+Mermaid has no inline code in a label. Thus the script changes each code span in
+a quoted label, such as ``a["Run `ndg html`"]``, to a `<code>` element. This
+applies to flowchart, class, state, requirement and kanban diagrams. A label
+that is fully in one pair of backticks is a Mermaid Markdown string, and stays
+as it is.
+
 By default, the library is Mermaid 11 from jsDelivr. To use a different version
 or to serve the library from your site, set `script` to a URL or a local path:
 
