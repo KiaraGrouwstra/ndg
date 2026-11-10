@@ -1208,6 +1208,9 @@ struct NavItem {
   special:  bool,
   /// Whether this item is the page that is being rendered.
   current:  bool,
+  /// Whether the page that is being rendered is this item or a descendant.
+  /// Only set in the collapsible hierarchy mode.
+  open:     bool,
 }
 
 /// A neighbor page in the sidebar reading order, exposed to Tera templates as
@@ -1234,14 +1237,32 @@ impl DocNav {
   }
 }
 
-fn render_nav_link(output: &mut String, item: &NavItem, prefix: &str) {
+fn render_nav_anchor(
+  output: &mut String,
+  item: &NavItem,
+  prefix: &str,
+  mark_current: bool,
+) {
   let path = encode_double_quoted_attribute(&item.path);
   let title = encode_text(&item.title);
-  if let Some(num) = item.number {
-    let _ = write!(output, "<li><a href=\"{path}\">{prefix}{num}. {title}</a>");
+  let current = if mark_current && item.current {
+    " class=\"active\" aria-current=\"page\""
   } else {
-    let _ = write!(output, "<li><a href=\"{path}\">{title}</a>");
+    ""
+  };
+  if let Some(num) = item.number {
+    let _ = write!(
+      output,
+      "<a href=\"{path}\"{current}>{prefix}{num}. {title}</a>"
+    );
+  } else {
+    let _ = write!(output, "<a href=\"{path}\"{current}>{title}</a>");
   }
+}
+
+fn render_nav_link(output: &mut String, item: &NavItem, prefix: &str) {
+  let _ = write!(output, "<li>");
+  render_nav_anchor(output, item, prefix, false);
 }
 
 fn render_nav_item(
@@ -1256,12 +1277,17 @@ fn render_nav_item(
 }
 
 /// Render with an explicit stack and one reusable ancestor-number buffer.
+///
+/// With `collapsible`, each item with children is a `<details>` element that
+/// has the link in its `<summary>`. Only items with `open` set start open,
+/// and the link of the current page has the class `active`.
 fn render_hierarchy(
   output: &mut String,
   order: &mut Vec<usize>,
   items: &[NavItem],
   roots: &[usize],
   children: &[Vec<usize>],
+  collapsible: bool,
 ) {
   struct Frame<'a> {
     siblings:   &'a [usize],
@@ -1281,7 +1307,11 @@ fn render_hierarchy(
       stack.pop();
       prefix.truncate(prefix_len);
       if !stack.is_empty() {
-        let _ = writeln!(output, "</ul></li>");
+        if collapsible {
+          let _ = writeln!(output, "</ul></details></li>");
+        } else {
+          let _ = writeln!(output, "</ul></li>");
+        }
       }
       continue;
     }
@@ -1290,8 +1320,22 @@ fn render_hierarchy(
     frame.next += 1;
     let item = &items[index];
     order.push(index);
-    render_nav_link(output, item, &prefix);
-    if children[index].is_empty() {
+    let has_children = !children[index].is_empty();
+    if !collapsible {
+      render_nav_link(output, item, &prefix);
+    } else if has_children {
+      let open = if item.open { " open" } else { "" };
+      let _ = write!(
+        output,
+        "<li class=\"sidebar-chapter\"><details{open}><summary>"
+      );
+      render_nav_anchor(output, item, &prefix, true);
+      let _ = write!(output, "</summary>");
+    } else {
+      let _ = write!(output, "<li>");
+      render_nav_anchor(output, item, &prefix, true);
+    }
+    if !has_children {
       let _ = writeln!(output, "</li>");
     } else {
       let prefix_len = prefix.len();
@@ -1540,6 +1584,7 @@ fn generate_doc_nav(
         number: None,
         special,
         current: html_path.as_ref() == current_file_rel_path,
+        open: false,
       });
       requested_parents.push(matched_rule.and_then(|m| m.parent.as_deref()));
     }
@@ -1573,6 +1618,16 @@ fn generate_doc_nav(
     }
     drop(source_indices);
     validate_nav_parents(&items, &parents)?;
+
+    let collapsible = !group_by_dir && sidebar.is_some_and(|s| s.collapsible);
+    if collapsible {
+      // The parents have no cycle, so each walk ends at a root.
+      let mut ancestor = items.iter().position(|item| item.current);
+      while let Some(index) = ancestor {
+        items[index].open = true;
+        ancestor = parents[index];
+      }
+    }
 
     let mut roots = Vec::new();
     let mut children = vec![Vec::new(); items.len()];
@@ -1626,7 +1681,14 @@ fn generate_doc_nav(
         );
       }
     } else {
-      render_hierarchy(&mut doc_nav, &mut order, &items, &roots, &children);
+      render_hierarchy(
+        &mut doc_nav,
+        &mut order,
+        &items,
+        &roots,
+        &children,
+        collapsible,
+      );
     }
     sequence.extend(order.into_iter().map(|index| {
       let item = &items[index];

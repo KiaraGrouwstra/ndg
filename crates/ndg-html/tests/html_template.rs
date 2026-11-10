@@ -999,6 +999,7 @@ fn sidebar_numbering_excludes_special_files() {
     ordering:             ndg_config::sidebar::SidebarOrdering::Alphabetical,
     group_by_dir:         false,
     show_group_counts:    true,
+    collapsible:          false,
     matches:              vec![],
     toc:                  SidebarTocConfig::default(),
     options:              None,
@@ -1059,6 +1060,7 @@ fn sidebar_numbering_special_files_included() {
     ordering:             ndg_config::sidebar::SidebarOrdering::Alphabetical,
     group_by_dir:         false,
     show_group_counts:    true,
+    collapsible:          false,
     matches:              vec![],
     toc:                  SidebarTocConfig::default(),
     options:              None,
@@ -1125,6 +1127,7 @@ fn sidebar_numbering_disabled_no_numbers() {
     ordering:             ndg_config::sidebar::SidebarOrdering::Alphabetical,
     group_by_dir:         false,
     show_group_counts:    true,
+    collapsible:          false,
     matches:              vec![],
     toc:                  SidebarTocConfig::default(),
     options:              None,
@@ -1169,6 +1172,7 @@ fn sidebar_groups_regular_items_but_keeps_special_items_flat() {
   config.sidebar = Some(SidebarConfig {
     group_by_dir: true,
     show_group_counts: true,
+    collapsible: false,
     ..Default::default()
   });
 
@@ -2406,4 +2410,58 @@ fn render_page_favicon_attribute_values_are_html_escaped() {
     html.contains(r#"type="text/html&lt;script&gt;"#),
     "angle brackets in mime_type must be HTML-escaped inside type attribute"
   );
+}
+
+#[test]
+fn test_sidebar_collapsible_opens_only_the_current_chain() {
+  let temp = TempDir::new().expect("create temp dir");
+  for (path, title) in [
+    ("index.md", "Introduction"),
+    ("guides.md", "Guides"),
+    ("install.md", "Install"),
+    ("reference.md", "Reference"),
+    ("options.md", "Options"),
+  ] {
+    fs::write(temp.path().join(path), format!("# {title}\n"))
+      .expect("write chapter");
+  }
+  let mut config = minimal_config();
+  config.input_dir = Some(temp.path().to_path_buf());
+  config.sidebar = Some(
+    serde_json::from_value(json!({
+      "ordering": "custom",
+      "collapsible": true,
+      "matches": [
+        {"path": {"exact": "guides.md"}, "position": 1},
+        {"path": {"exact": "install.md"}, "parent": "guides.md"},
+        {"path": {"exact": "reference.md"}, "position": 2},
+        {"path": {"exact": "options.md"}, "parent": "reference.md"}
+      ]
+    }))
+    .expect("parse chapter rules"),
+  );
+  let html = template::render(
+    &config,
+    "<p>Body</p>",
+    "Install",
+    &[],
+    Path::new("install.html"),
+    None,
+  )
+  .expect("render chapters");
+  let hierarchy = regex::Regex::new(concat!(
+    r#"<li class="sidebar-chapter"><details open><summary>"#,
+    r#"<a href="guides.html">Guides</a></summary>\s*"#,
+    r#"<ul class="sidebar-subchapters">\s*"#,
+    r#"<li><a href="install.html" class="active" aria-current="page">"#,
+    r#"Install</a></li>\s*"#,
+    r#"</ul></details></li>\s*"#,
+    r#"<li class="sidebar-chapter"><details><summary>"#,
+    r#"<a href="reference.html">Reference</a></summary>\s*"#,
+    r#"<ul class="sidebar-subchapters">\s*"#,
+    r#"<li><a href="options.html">Options</a></li>\s*"#,
+    r#"</ul></details></li>"#,
+  ))
+  .expect("compile hierarchy assertion");
+  assert!(hierarchy.is_match(&html), "incorrect collapsible hierarchy");
 }
