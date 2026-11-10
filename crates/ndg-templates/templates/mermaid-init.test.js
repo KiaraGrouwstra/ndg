@@ -98,7 +98,7 @@ Deno.test("a page without diagrams does not load Mermaid", async () => {
 });
 
 Deno.test("a page with diagrams loads Mermaid once and draws", async () => {
-  const diagrams = { count: 1 };
+  const diagrams = { count: 1, text: "graph TD; A-->B" };
   const page = loadMermaidInit({ diagrams, dark: true });
   await settle();
   assert(page.appended.length === 1, "the library is loaded once");
@@ -119,7 +119,10 @@ Deno.test("a page with diagrams loads Mermaid once and draws", async () => {
 });
 
 Deno.test("a selected theme overrides the system", async () => {
-  const page = loadMermaidInit({ diagrams: { count: 1 }, theme: "light" });
+  const page = loadMermaidInit({
+    diagrams: { count: 1, text: "graph TD; A-->B" },
+    theme: "light",
+  });
   await settle();
   assert(page.initialized[0].theme === "default", "the light theme is used");
 });
@@ -145,4 +148,53 @@ Deno.test("a theme change before the first drawing does nothing", async () => {
   page.changeTheme("dark");
   await settle();
   assert(page.appended.length === 0, "the library is not loaded");
+});
+
+async function drawn(text) {
+  const page = loadMermaidInit({ diagrams: { count: 1, text } });
+  await settle();
+  return page.runs[0].text;
+}
+
+Deno.test("a code span in a flowchart label becomes a code element", async () => {
+  assert(
+    (await drawn('flowchart LR\n  a["run `f<T>` & `g`"] -->|"`x` y"| b')) ===
+      'flowchart LR\n  a["run <code>f&lt;T&gt;</code> & <code>g</code>"] -->|"<code>x</code> y"| b',
+    "each code span is a code element with escaped text",
+  );
+  assert(
+    (await drawn('---\ntitle: t\n---\n%% note\ngraph TD\n  a["`x` y"]')) ===
+      '---\ntitle: t\n---\n%% note\ngraph TD\n  a["<code>x</code> y"]',
+    "front matter and comments can come before the diagram type",
+  );
+});
+
+Deno.test("a code span in a state diagram label becomes a code element", async () => {
+  assert(
+    (await drawn('stateDiagram-v2\n  state "the `a` one" as s1')) ===
+      'stateDiagram-v2\n  state "the <code>a</code> one" as s1',
+    "the code span is a code element",
+  );
+});
+
+Deno.test("a Mermaid Markdown string stays as it is", async () => {
+  const text = 'flowchart LR\n  a["`**bold** text`"]';
+  assert((await drawn(text)) === text, "the Markdown string is not changed");
+});
+
+Deno.test("a diagram type without Markdown labels stays as it is", async () => {
+  const text = 'sequenceDiagram\n  a->>b: "`x` y"';
+  assert((await drawn(text)) === text, "the text is not changed");
+});
+
+Deno.test("a theme change keeps the code elements", async () => {
+  const diagrams = { count: 1, text: 'flowchart LR\n  a["`x` y"]' };
+  const page = loadMermaidInit({ diagrams });
+  await settle();
+  page.changeTheme("dark");
+  await settle();
+  assert(
+    page.runs[1].text === 'flowchart LR\n  a["<code>x</code> y"]',
+    "the code span is changed one time only",
+  );
 });
