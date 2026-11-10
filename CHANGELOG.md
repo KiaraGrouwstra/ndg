@@ -61,7 +61,7 @@ changes.
   diagram. `mermaid.script` sets the library as a URL or a local file, which NDG
   copies to `assets/`. It defaults to Mermaid 11 from jsDelivr. The
   `ndg-builder` Nix package has a `mermaid` option that uses the library from
-  `mdbook-mermaid`.
+  `mdbook-mermaid`. A code span in a quoted label renders as inline code.
 
 ### Changed
 

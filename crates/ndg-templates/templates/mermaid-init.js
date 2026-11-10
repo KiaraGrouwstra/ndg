@@ -11,6 +11,11 @@
  * The diagrams use the theme of `<html data-theme>`, or the color scheme of the
  * system when the page has no `data-theme`. On an `ndg:themechange` event, the
  * script draws the diagrams again in the new theme.
+ *
+ * Mermaid has no inline code in a label, and shows an error text for it. Thus
+ * the script changes each code span in a quoted label to a `<code>` element, in
+ * the diagram types that read a label as Markdown. A label that is fully in one
+ * pair of backticks is a Mermaid Markdown string, and stays as it is.
  */
 (() => {
   const script = document.currentScript;
@@ -21,6 +26,24 @@
   const sources = new WeakMap();
   let library;
   let queue = Promise.resolve();
+
+  function codeSpans(text) {
+    // The other diagram types show the backticks or the `<code>` tag as text.
+    const body = text.replace(/^\s*---\n[^]*?\n---\n|^\s*%%.*\n/gm, "");
+    const types =
+      /^\s*(flowchart|graph|classDiagram|stateDiagram|requirementDiagram|kanban)\b/;
+    if (!types.test(body)) return text;
+    const escape = (code) =>
+      code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return text.replace(/"([^"\n]*)"/g, (label, content) =>
+      /^`[^`]*`$/.test(content)
+        ? label
+        : label.replace(
+            /`([^`]+)`/g,
+            (_, code) => `<code>${escape(code)}</code>`,
+          ),
+    );
+  }
 
   function initialize(mermaid) {
     const theme = document.documentElement.dataset.theme;
@@ -57,7 +80,9 @@
       .then(async () => {
         const mermaid = await loadLibrary();
         for (const element of document.querySelectorAll(selector)) {
-          if (!sources.has(element)) sources.set(element, element.textContent);
+          if (sources.has(element)) continue;
+          element.textContent = codeSpans(element.textContent);
+          sources.set(element, element.textContent);
         }
         await mermaid.run({ querySelector: selector });
       })
