@@ -1150,8 +1150,29 @@ function setupOptionsPage(signal, content) {
     .catch(() => {});
 }
 
+// Long names in table code, such as `services.foo.settings.bar`, have no
+// break opportunity, thus they make their column wide. Let them break after
+// each `.` and `/`.
+function addTableCodeBreaks() {
+  for (const code of document.querySelectorAll(".content table code")) {
+    for (const node of [...code.childNodes]) {
+      if (node.nodeType !== Node.TEXT_NODE || !/[./]./.test(node.data)) {
+        continue;
+      }
+      const fragment = document.createDocumentFragment();
+      node.data.split(/(?<=[./])(?=.)/).forEach((part, index) => {
+        if (index > 0) fragment.append(document.createElement("wbr"));
+        fragment.append(part);
+      });
+      node.replaceWith(fragment);
+    }
+  }
+}
+
 function initializePage() {
   const signal = beginPageLifecycle();
+
+  addTableCodeBreaks();
 
   // The images of a new page follow the selected theme too.
   syncThemedImages(currentTheme());

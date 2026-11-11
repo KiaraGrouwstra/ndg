@@ -393,9 +393,37 @@ header {
   color: var(--text-muted);
 }
 
+/* The content width follows the free space between the sidebar toggle and
+  the page-toc, from 800px to 1100px. The free space keeps room for the side
+  arrows: 44px wide, at least 24px from the sidebar toggle and the page-toc.
+  The content is centered in the viewport, thus the larger side sets the
+  width. The sidebar toggle ends at 328px, or at 28px when the sidebar is
+  collapsed. The page-toc starts at 268px from the right. */
+:root {
+  --content-width: 800px;
+}
+
+@media (min-width: 1000px) {
+  :root.sidebar-collapsed {
+    --content-width: clamp(800px, 100vw - 148px, 1100px);
+  }
+}
+
+@media (min-width: 1536px) {
+  :root:not(.sidebar-collapsed) {
+    --content-width: clamp(800px, 100vw - 748px, 1100px);
+  }
+}
+
+@media (min-width: 1600px) {
+  :root.sidebar-collapsed {
+    --content-width: clamp(800px, 100vw - 628px, 1100px);
+  }
+}
+
 /* Content container  */
 .content {
-  max-width: 800px;
+  max-width: var(--content-width);
   width: 100%;
   padding: var(--space-8);
   box-sizing: border-box;
@@ -714,6 +742,14 @@ table {
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
+}
+
+/* A table is not wider than the content. A table that does not fit scrolls. */
+.content table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 th,
@@ -2070,7 +2106,7 @@ h6:hover .copy-link {
 }
 
 .options-page .content {
-  max-width: 960px;
+  max-width: max(960px, var(--content-width));
 }
 
 .option {
@@ -2859,26 +2895,47 @@ h6:hover .copy-link {
   }
 }
 
-/* The content is 800px wide and centered in the viewport. The arrows are 44px
-  wide. The sidebar toggle ends at 328px, or at 28px when the sidebar is
-  collapsed. The page-toc starts at 268px from the right. */
+/* The content is `--content-width` wide and centered in the viewport. The
+  arrows are 44px wide. The sidebar toggle ends at 328px, or at 28px when the
+  sidebar is collapsed. The page-toc starts at 268px from the right. */
 @media (min-width: 1536px) {
   .page-nav-side {
-    --page-nav-side-offset: clamp(0px, min(50vw - 774px, 25vw - 364px), 160px);
+    --page-nav-side-offset: clamp(
+      0px,
+      min(
+        50vw - var(--content-width) / 2 - 374px,
+        (50vw - var(--content-width) / 2 - 328px) / 2
+      ),
+      160px
+    );
     display: block;
   }
 }
 
 @media (min-width: 1000px) {
   .sidebar-collapsed .page-nav-side {
-    --page-nav-side-offset: clamp(0px, min(50vw - 474px, 25vw - 214px), 160px);
+    --page-nav-side-offset: clamp(
+      0px,
+      min(
+        50vw - var(--content-width) / 2 - 74px,
+        (50vw - var(--content-width) / 2 - 28px) / 2
+      ),
+      160px
+    );
     display: block;
   }
 }
 
 @media (min-width: 1600px) {
   .sidebar-collapsed .page-nav-side {
-    --page-nav-side-offset: clamp(0px, min(50vw - 714px, 25vw - 214px), 160px);
+    --page-nav-side-offset: clamp(
+      0px,
+      min(
+        50vw - var(--content-width) / 2 - 314px,
+        (50vw - var(--content-width) / 2 - 28px) / 2
+      ),
+      160px
+    );
   }
 }
 
